@@ -11,7 +11,9 @@ import types._
 object Cell {
   val seed = Random
 
-  def props(pos: Position, dims: Dimensions) = Props(new Cell(pos, dims))
+  def props(pos: Position, subscribers: List[String]) = {
+    Props(new Cell(pos, subscribers))
+  }
   def name(pos: Position) = pos.x + "-" + pos.y
   def initialDelay = 1000 milliseconds
   def interval() = (500 + seed.nextInt(1000)) milliseconds
@@ -21,18 +23,11 @@ object Cell {
   }
 }
 
-class Cell(val pos: Position, val dims: Dimensions) extends Actor {
+class Cell(pos: Position, subscribers: List[String]) extends Actor {
   import context.dispatcher
 
-  var livingNeighbors: Set[Position] = Set()
-  var status: CellStatus = Cell.initialStatus()
-  val neighborPositions: List[Position] = for {
-    x <- List.range(pos.x - 1, pos.x + 2);
-    y <- List.range(pos.y - 1, pos.y + 2)
-    if x >= 0 && x < dims.width
-    if y >= 0 && y < dims.height
-    if Position(x, y) != pos
-  } yield Position(x, y)
+  private var livingNeighbors: Set[Position] = Set()
+  private var status: CellStatus = Cell.initialStatus()
 
   override def preStart(): Unit = {
     context.system.scheduler.scheduleOnce(
@@ -76,13 +71,8 @@ class Cell(val pos: Position, val dims: Dimensions) extends Actor {
 
   private def broadcastStatus() {
     val update = CellStatusUpdate(pos, status)
-    informNeighbors(neighborPositions, update)
-    context.parent ! update
-  }
-
-  private def informNeighbors(neighborPositions: List[Position], message: Message) {
-    neighborPositions.foreach((nPos: Position) => {
-      context.actorSelection("../" + Cell.name(nPos)) ! message
+    subscribers foreach ((subscriber: String) => {
+      context.actorSelection("../" + subscriber) ! update
     })
   }
 

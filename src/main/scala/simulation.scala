@@ -1,51 +1,44 @@
 package simulation
 
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 import akka.actor.Actor
 import akka.actor.Props
-import scalafx.application.Platform
 import cell.Cell
 import screen.Screen
 import types._
+
 
 object Simulation {
   def props(dims: Dimensions) = Props(new Simulation(dims))
 }
 
 class Simulation(dimensions: Dimensions) extends Actor {
-  val children = dimensions match {
+  private val screen = context.actorOf(
+    Screen.props(dimensions),
+    name = "screen"
+  )
+  private val children = dimensions match {
     case Dimensions(width, height) => for {
       x <- List.range(0, width);
       y <- List.range(0, height)
     } yield context.actorOf(
-      Cell.props(Position(x, y), dimensions),
+      Cell.props(Position(x, y), subscribers(Position(x, y))),
       name = Cell.name(Position(x, y))
     )
   }
-  val screen = new Screen(dimensions)
-  var updateCount = 0
-  var updates: List[CellStatusUpdate] = List()
 
-  Future {
-    println("Spawning thread for screen...")
-    screen.main(Array("asdf"))
+  def subscribers(pos: Position): List[String] = {
+    val neighboringCells = for {
+      x <- List.range(pos.x - 1, pos.x + 2);
+      y <- List.range(pos.y - 1, pos.y + 2)
+      if x >= 0 && x < dimensions.width
+      if y >= 0 && y < dimensions.height
+      if Position(x, y) != pos
+    } yield Cell.name(Position(x, y))
+
+    "screen" :: neighboringCells
   }
 
   def receive = {
-    case CellStatusUpdate(pos, status) =>
-      updateCount += 1
-      updates = CellStatusUpdate(pos, status) :: updates
-
-      if (updateCount >= 100) {
-        val updateLambdas = for (update <- updates) yield (() => {
-          screen.updateStatus(update.pos, update.status)
-        })
-
-        Platform.runLater(() => updateLambdas.foreach(_()))
-
-        updateCount = 0
-        updates = List()
-      }
+    case _ => println("Simulation actor received a message")
   }
 }

@@ -1,49 +1,46 @@
 package screen
 
-import scala.collection.mutable
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+import akka.actor.Actor
+import akka.actor.Props
 import scalafx.Includes._
-import scalafx.application.JFXApp
-import scalafx.scene.Scene
-import scalafx.scene.paint.Color._
-import scalafx.scene.shape.Rectangle
-import scalafx.beans.property._
+import scalafx.application.Platform
+import screenUI.ScreenUI
 import types._
 
 
-class Screen(dimensions: Dimensions) extends JFXApp {
-  val scaleFactor = 3
-  val statuses    = mutable.Map[Position, BooleanProperty]()
+object Screen {
+  def props(dimensions: Dimensions) = Props(new Screen(dimensions))
+}
 
-  for {
-    x <- 0 until dimensions.width;
-    y <- 0 until dimensions.height
-  } statuses(Position(x,y)) = BooleanProperty(false)
+class Screen(dimensions: Dimensions) extends Actor {
+  private val screen = new ScreenUI(dimensions)
+  private var updateCount = 0
+  private var updates = List[CellStatusUpdate]()
 
-  stage = new JFXApp.PrimaryStage {
-    title.value = "Game of Life"
-    width = dimensions.width * scaleFactor
-    height = dimensions.height * scaleFactor
-    scene = new Scene {
-      fill = White
-      content = for {
-        i <- 0 until dimensions.width;
-        j <- 0 until dimensions.height
-      } yield (
-        new Rectangle {
-          x = i * scaleFactor
-          y = j * scaleFactor
-          width = scaleFactor
-          height = scaleFactor
-          fill <== when (statuses(Position(i,j))) choose Red otherwise White
-        }
-      )
+  override def preStart(): Unit = {
+    Future {
+      println("Spawning thread for visualization screen...")
+      screen.main(Array[String]())
     }
   }
 
-  def updateStatus(pos: Position, status: CellStatus): Unit = {
-    status match {
-      case Alive => statuses(pos).value = true
-      case Dead  => statuses(pos).value = false
+  def receive = {
+    case CellStatusUpdate(pos, status) => {
+      updateCount += 1
+      updates = CellStatusUpdate(pos, status) :: updates
+
+      if (updateCount >= 100) {
+        val updateLambdas = for (update <- updates) yield (() => {
+          screen.updateStatus(update.pos, update.status)
+        })
+
+        Platform.runLater(() => updateLambdas.foreach(_()))
+
+        updateCount = 0
+        updates = List()
+      }
     }
   }
 }
