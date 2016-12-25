@@ -1,12 +1,13 @@
 package simulation
 
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 import akka.actor.Actor
 import akka.actor.Props
+import scalafx.application.Platform
 import cell.Cell
 import screen.Screen
 import types._
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 
 object Simulation {
   def props(dims: Dimensions) = Props(new Simulation(dims))
@@ -23,6 +24,8 @@ class Simulation(dimensions: Dimensions) extends Actor {
     )
   }
   val screen = new Screen(dimensions)
+  var updateCount = 0
+  var updates: List[CellStatusUpdate] = List()
 
   Future {
     println("Spawning thread for screen...")
@@ -30,6 +33,19 @@ class Simulation(dimensions: Dimensions) extends Actor {
   }
 
   def receive = {
-    case CellStatusUpdate(pos, status) => screen.updateStatus(pos, status)
+    case CellStatusUpdate(pos, status) =>
+      updateCount += 1
+      updates = CellStatusUpdate(pos, status) :: updates
+
+      if (updateCount >= 100) {
+        val updateLambdas = for (update <- updates) yield (() => {
+          screen.updateStatus(update.pos, update.status)
+        })
+
+        Platform.runLater(() => updateLambdas.foreach(_()))
+
+        updateCount = 0
+        updates = List()
+      }
   }
 }

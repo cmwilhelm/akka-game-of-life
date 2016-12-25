@@ -15,7 +15,7 @@ object Cell {
   def name(pos: Position) = pos.x + "-" + pos.y
   def initialDelay = 1000 milliseconds
   def interval() = (500 + seed.nextInt(1000)) milliseconds
-  def initialStatus() = seed.nextInt(15) match {
+  def initialStatus() = seed.nextInt(8) match {
     case 0 => Alive
     case _ => Dead
   }
