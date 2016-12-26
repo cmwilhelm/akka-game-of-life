@@ -2,6 +2,7 @@ package cell
 
 import scala.util.Random
 import akka.actor.Actor
+import akka.actor.ActorSelection
 import akka.actor.Props
 import akka.event.Logging
 import scala.concurrent.duration._
@@ -11,9 +12,9 @@ import types._
 object Cell {
   val seed = Random
 
-  def props(pos: Position, subscribers: List[String]) = {
+  def props(pos: Position, subscribers: List[ActorSelection]) =
     Props(new Cell(pos, subscribers))
-  }
+
   def name(pos: Position) = pos.x + "-" + pos.y
   def initialDelay = 1000 milliseconds
   def interval() = (500 + seed.nextInt(1000)) milliseconds
@@ -23,7 +24,7 @@ object Cell {
   }
 }
 
-class Cell(pos: Position, subscribers: List[String]) extends Actor {
+class Cell(pos: Position, subscribers: List[ActorSelection]) extends Actor {
   import context.dispatcher
 
   private var livingNeighbors: Set[Position] = Set()
@@ -72,9 +73,7 @@ class Cell(pos: Position, subscribers: List[String]) extends Actor {
 
   private def broadcastStatus() {
     val update = CellStatusUpdate(pos, status)
-    subscribers foreach ((subscriber: String) => {
-      context.actorSelection("../" + subscriber) ! update
-    })
+    subscribers foreach (_ ! update)
   }
 
   private def scheduleUpdate() = {
