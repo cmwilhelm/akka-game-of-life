@@ -18,7 +18,7 @@ object Cell {
   def initialDelay = 1000 milliseconds
   def interval() = (500 + seed.nextInt(1000)) milliseconds
   def initialStatus() = seed.nextInt(8) match {
-    case 0 => Alive
+    case 0 => Alive(0)
     case _ => Dead
   }
 }
@@ -45,8 +45,8 @@ class Cell(pos: Position, subscribers: List[String]) extends Actor {
 
   private def handleCellStatusUpdate(pos: Position, status: CellStatus): Unit = {
     status match {
-      case Alive => livingNeighbors += pos
-      case Dead  => livingNeighbors -= pos
+      case Alive(_) => livingNeighbors += pos
+      case Dead     => livingNeighbors -= pos
     }
   }
 
@@ -63,9 +63,10 @@ class Cell(pos: Position, subscribers: List[String]) extends Actor {
 
   private def newStatus(livingNeighbors: Set[Position]): CellStatus = {
     (status, livingNeighbors.size) match {
-      case (_, 3)     => Alive
-      case (Alive, 2) => Alive
-      case (_, _)     => Dead
+      case (Alive(dur), 3) => Alive(dur + 1)
+      case (Alive(dur), 2) => Alive(dur + 1)
+      case (Dead, 3)       => Alive(0)
+      case (_, _)          => Dead
     }
   }
 

@@ -4,7 +4,7 @@ case class Position(x: Int, y: Int)
 case class Dimensions(width: Int, height: Int)
 
 abstract class CellStatus
-case object Alive extends CellStatus
+case class Alive(duration: Int) extends CellStatus
 case object Dead extends CellStatus
 
 abstract class Message
