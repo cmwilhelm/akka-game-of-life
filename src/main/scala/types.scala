@@ -1,13 +1,13 @@
 package types
 
-case class Position(x: Int, y: Int)
-case class Dimensions(width: Int, height: Int)
+final case class Position(x: Int, y: Int)
+final case class Dimensions(width: Int, height: Int)
 
-abstract class CellStatus
-case class Alive(duration: Int) extends CellStatus
-case object Dead extends CellStatus
+sealed trait CellStatus
+final case class Alive(duration: Int) extends CellStatus
+final case object Dead extends CellStatus
 
-abstract class Message
-case class CellStatusUpdate(pos: Position, status: CellStatus) extends Message
-case object NeedsInit extends Message
-case object NeedsUpdate extends Message
+sealed trait Message
+final case class CellStatusUpdate(pos: Position, status: CellStatus) extends Message
+final case object NeedsInit extends Message
+final case object NeedsUpdate extends Message
